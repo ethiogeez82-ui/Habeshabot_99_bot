@@ -41,3 +41,83 @@ def main():
 
 if __name__ == '__main__':
     main()
+import sqlite3
+from telegram import Update
+from telegram.ext import ContextTypes, CommandHandler, ApplicationBuilder
+
+# 1. ዳታቤዝ ማዘጋጀት (Database Setup)
+def init_db():
+    conn = sqlite3.connect('bingo_bot.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT,
+            balance REAL DEFAULT 0.0
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+# ቦቱ ሲነሳ ዳታቤዙን ማዘጋጀት
+init_db()
+
+# 2. የሒሳብ መጠን ማሳያ ትዕዛዝ (/balance)
+async def check_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    username = update.effective_user.username
+    
+    conn = sqlite3.connect('bingo_bot.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,))
+    row = cursor.fetchone()
+    
+    if row:
+        balance = row[0]
+    else:
+        # አዲስ ተጠቃሚ ሲመዘገብ
+        cursor.execute('INSERT INTO users (user_id, username, balance) VALUES (?, ?, ?)', 
+                       (user_id, username, 0.0))
+        conn.commit()
+        balance = 0.0
+        
+    conn.close()
+    await update.message.reply_text(f"💳 የእርስዎ የኪስ ቦርሳ ሒሳብ: *{balance} ብር* ነው።", parse_mode="Markdown")
+
+# 3. ገንዘብ ለመሙላት የሚጠየቅ ትዕዛዝ (/deposit)
+async def deposit_money(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    deposit_text = (
+        "💰 *ብር ለመሙላት (Deposit):*\n\n"
+        "እባክዎ ከታች ባሉት አካውንቶች ገንዘብ ገቢ በማድረግ ደረሰኙን (Screenshot) ወይም የግብይት ቁጥር ይላኩ:\n\n"
+        "🏦 *ንግድ ባንክ:* 1000XXXXXXXXXX\n"
+        "📱 *ቴሌብር (Telebirr):* 0912345678\n\n"
+        "ክፍያውን ከፈጸሙ በኋላ ማረጋገጫውን ለአስተዳዳሪው ይላኩ። ሒሳብዎ ወዲያውኑ ይስተካከላል!"
+    )
+    await update.message.reply_text(deposit_text, parse_mode="Markdown")
+
+# 4. ለአስተዳዳሪ የሰውየውን ሒሳብ ለመጨመር (/addbalance [user_id] [amount])
+async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # የእርስዎን የአስተዳዳሪ ቴሌግራም ID እዚህ ያስገቡ (ለምሳሌ: 123456789)
+    ADMIN_ID = YOUR_ADMIN_ID_HERE  
+    
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("ይህንን ትዕዛዝ ለመጠቀም ፈቃድ የለዎትም!")
+        return
+
+    try:
+        args = context.args
+        target_user_id = int(args[0])
+        amount = float(args[1])
+
+        conn = sqlite3.connect('bingo_bot.db')
+        cursor = conn.cursor()
+        
+        # ተጠቃሚው መኖሩን አረጋግጦ ሒሳብ መጨመር
+        cursor.execute('UPDATE users SET balance = balance + ? WHERE user_id = ?', (amount, target_user_id))
+        conn.commit()
+        conn.close()
+
+        await update.message.reply_text(f"✅ ለተጠቃሚ {target_user_id} ሒሳብ *{amount} ብር* በተሳካ ሁኔታ ተጨምሯል!", parse_mode="Markdown")
+    except Exception as e:
+        await update.message.reply_text("አጠቃቀም ስህተት አለው። ትክክለኛው: /addbalance [user_id] [amount]")

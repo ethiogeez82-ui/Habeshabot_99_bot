@@ -99,7 +99,7 @@ async def deposit_money(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # 4. ለአስተዳዳሪ የሰውየውን ሒሳብ ለመጨመር (/addbalance [user_id] [amount])
 async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # የእርስዎን የአስተዳዳሪ ቴሌግራም ID እዚህ ያስገቡ (ለምሳሌ: 123456789)
-    ADMIN_ID = YOUR_ADMIN_ID_HERE  
+      485838791
     
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("ይህንን ትዕዛዝ ለመጠቀም ፈቃድ የለዎትም!")
@@ -114,10 +114,30 @@ async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor = conn.cursor()
         
         # ተጠቃሚው መኖሩን አረጋግጦ ሒሳብ መጨመር
-        cursor.execute('UPDATE users SET balance = balance + ? WHERE user_id = ?', (amount, target_user_id))
+        cursor.execute('UPDATE users SET balance = balance + ? W፦HERE user_id = ?', (amount, target_user_id))
         conn.commit()
         conn.close()
 
         await update.message.reply_text(f"✅ ለተጠቃሚ {target_user_id} ሒሳብ *{amount} ብር* በተሳካ ሁኔታ ተጨምሯል!", parse_mode="Markdown")
     except Exception as e:
         await update.message.reply_text("አጠቃቀም ስህተት አለው። ትክክለኛው: /addbalance [user_id] [amount]")
+def main():
+    TOKEN = os.getenv("BOT_TOKEN")
+    if not TOKEN:
+        print("እባክዎ የቦት ቶከን (BOT_TOKEN) ያስገቡ")
+        return
+
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    # ትዕዛዞችን እዚህ መዝግቡ
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("bingo", bingo))
+    app.add_handler(CommandHandler("balance", check_balance))
+    app.add_handler(CommandHandler("deposit", deposit_money))
+    app.add_handler(CommandHandler("addbalance", add_balance))
+
+    print("ቦቱ በመጀመር ላይ ነው ...")
+    app.run_polling()
+
+if __name__ == '__main__':
+    main()
